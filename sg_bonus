@@ -1,0 +1,65 @@
+lo.lev <- function(x1, sp){
+  
+  ## YOUR CODE: compute the diagonal entries of the smoother
+  ##             matrix S, stored in vector "lev"
+  ## Tip: check how we compute the smoother matrix
+  ##      for smoothing spline models
+  
+# return the smoother matrix with knots x and degree of freedom = df
+# this function is for x having unique values
+ n = length(x1);
+ A = matrix(0, n, n);
+ for(i in 1:n){
+       y = rep(0, n); y[i]=1;
+       yi = fitted(loess(y ~ x1, span = sp,control = loess.control(surface = "direct")));
+       #yi = fitted(loess(y ~ x1, span = sp, family = "gaussian", degree = 2, surface = "direct"));
+       
+        A[,i]= yi;
+       }
+ return((A+t(A))/2)
+ }
+
+onestep_CV <- function(x1, y1, sp){
+  
+  ## YOUR CODE: 
+  ## 1) fit a loess model y1 ~ x1 with span = sp, and extract 
+  ##    the corresponding residual vector
+  ## 2) call lo.lev to obtain the diagonal entries of S
+  ## 3) compute LOO-CV and GCV using formula from lecture notes
+  ##    [lec_W5_NonlinearRegression.pdf] page 33. 
+  n=length(x1)
+  cd3=loess(y1 ~ x1,span=sp,control = loess.control(surface = "direct"))
+  dhat=diag(lo.lev(x1,sp))
+  cv=sum(((mydata$y-cd3$fitted)/(1-dhat))^2)/n
+  gcv=sum(((mydata$y-cd3$fitted)/(1-(sum(dhat)/n)))^2)/n
+  return(list(cv = cv, gcv = gcv))
+}
+
+myCV <- function(x1, y1, span){
+  ## x1, y1: two vectors
+  ## span: a sequence of values for "span"
+  
+  m = length(span)
+  cv = rep(0, m)
+  gcv = rep(0, m)
+  for(i in 1:m){
+    tmp = onestep_CV(x1, y1, span[i])
+    cv[i] = tmp$cv
+    gcv[i] = tmp$gcv
+  }
+  return(list(cv = cv, gcv = gcv))
+}
+
+
+setwd("C:/SravansData/mcsds/PSL/Coding3")
+mydata = read.csv(file = "Coding3_Bonus_Data.csv")
+span1 = seq(from = 0.2, by = 0.05, length = 15 )
+cv.out = myCV(mydata$x, mydata$y, span1)
+cv = round(cv.out$cv,6)
+gcv = round(cv.out$gcv,6)
+cbind(cv, gcv,span1)
+
+pdf("Assignment_Output_3_Bonus_1061_sgardas2.pdf")
+grid.table(cbind(cv, gcv,span1))
+dev.off()
+
